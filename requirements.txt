@@ -1,0 +1,6 @@
+tqdm
+pandas
+pickle
+scipy
+numpy
+py-ecg-detectors
