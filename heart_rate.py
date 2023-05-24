@@ -111,7 +111,7 @@ def main(args):
             save_heartbeats(fname_hb, time, ecg_hb, gcg_hb, fs)
 
             ecg_hr, gcg_hr = calculate_hr(ecg_hb, gcg_hb, fs)
-            save_hr(fname_hb, ecg_hr, gcg_hr, fs)
+            save_hr(fname_hr, ecg_hr, gcg_hr, fs)
 
 
 if __name__ == "__main__":
