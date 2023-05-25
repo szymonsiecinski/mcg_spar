@@ -12,8 +12,8 @@ def main(args):
     #signal = list()
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
 
-    i=3
-    with open('saved_data/{}'.format(files[i]), 'rb') as handle:
+    i=int(input("Choose the file number (0-{}): ".format(len(files)-1)))
+    with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
         signal = pickle.load(handle)
 
     figure()
@@ -21,7 +21,12 @@ def main(args):
     xlabel('Time [s]')
     ylabel('Amplitude')
     title('ECG signal')
-    #savefig('')
+
+    figure()
+    plot(signal['time'], signal['dataframe'].loc[:,'scg_z'])
+    xlabel('Time [s]')
+    ylabel('Amplitude')
+    title('SCG signal')
 
     figure()
     plot(signal['time'], signal['dataframe'].loc[:,'gcg_y'])
@@ -33,7 +38,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', nargs = '?', type = str, default = "saved_data/", help= "path to data files")
+    parser.add_argument('--data_path', nargs = '?', type = str, default = "signal_data/", help= "path to data files")
     parser.add_argument('--fs', nargs = '?', type = int, default = 800, help= "sampling frequency")
 					
     args = parser.parse_args()

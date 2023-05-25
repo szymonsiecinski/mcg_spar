@@ -3,7 +3,7 @@ import pickle
 import math
 from tqdm import tqdm
 import os
-from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig
+from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig, close
 from matplotlib import cm as CM
 from ecgdetectors import Detectors
 import hrv
@@ -79,7 +79,7 @@ def main(args):
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
 
     if args.interactive:
-        i=3
+        i = int(input('Enter the number of file (0-{}): '.format(len(files)-1)))
         with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
             signal = pickle.load(handle)
 
@@ -112,6 +112,7 @@ def main(args):
         for i in tqdm(files, total=len(files)):
             subj_no = [int(s) for s in re.findall(r'\d+', i)]
             fname_spar_ecg = 'spar_ecg_sub{}'.format(subj_no[0])
+            fname_spar_scg = 'spar_scg_sub{}'.format(subj_no[0])
             fname_spar_gcg = 'spar_gcg_sub{}'.format(subj_no[0])
 
             with open('{}/{}'.format(data_path, i), 'rb') as handle:
@@ -119,29 +120,40 @@ def main(args):
 
             #time = signal['time']
             ecg = signal['dataframe'].loc[:,'ecg']
+            scg = signal['dataframe'].loc[:,'scg_z']
             gcg = signal['dataframe'].loc[:,'gcg_y']
             
             ecg_hb = detect_heartbeats_in_ecg(ecg, fs)
+            scg_hb = detect_heartbeats_gcg(ecg, scg, fs)
             gcg_hb = detect_heartbeats_gcg(ecg, gcg, fs)
 
             v_ecg, w_ecg = get_vw(ecg, ecg_hb, fs)
+            v_scg, w_scg = get_vw(scg, scg_hb, fs)
+            v_gcg, w_gcg = get_vw(gcg, gcg_hb, fs)
 
             figure()
             plot(v_ecg, w_ecg)
             xlabel('V')
             ylabel('W')
             title('Attractor reconstruction for ECG {}'.format(i))
-            savefig('spars/{}'.format(fname_spar_ecg), dpi=600, format='png')
+            savefig('spars/{}.png'.format(fname_spar_ecg), dpi=300, format='png')
+            close()
 
-            v_gcg, w_gcg = get_vw(gcg, gcg_hb, fs)
+            figure()
+            plot(v_scg, w_scg)
+            xlabel('V')
+            ylabel('W')
+            title('Attractor reconstruction for SCG {}'.format(i))
+            savefig('spars/{}.png'.format(fname_spar_scg), dpi=300, format='png')
+            close()
 
             figure()
             plot(v_gcg, w_gcg)
             xlabel('V')
             ylabel('W')
             title('Attractor reconstruction for GCG {}'.format(i))
-            savefig('spars/{}'.format(fname_spar_gcg), dpi=600, format='png')
-
+            savefig('spars/{}.png'.format(fname_spar_gcg), dpi=300, format='png')
+            close()
 
 
 if __name__ == "__main__":

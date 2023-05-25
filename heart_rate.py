@@ -60,7 +60,7 @@ def main(args):
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
 
     if(args.interactive):
-        i = int(input('Enter the number of file (0-{})'.format(len(files))))
+        i = int(input('Enter the number of file (0-{}): '.format(len(files)-1)))
         with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
             signal = pickle.load(handle)
 
