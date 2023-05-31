@@ -13,6 +13,11 @@ def main(args):
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
 
     i=int(input("Choose the file number (0-{}): ".format(len(files)-1)))
+
+    if i > len(files)-1 and i < 0:
+        print("Wrong number of file")
+        return
+
     with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
         signal = pickle.load(handle)
 

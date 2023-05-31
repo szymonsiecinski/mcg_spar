@@ -3,14 +3,14 @@ import pickle
 import math
 from tqdm import tqdm
 import os
-from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig, close
+from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig, close, contourf
 from matplotlib import cm as CM
 from ecgdetectors import Detectors
 import hrv
 import numpy as np
-import scipy as sp
+import scipy.signal as sp
 import re
-
+from sklearn.metrics.pairwise import euclidean_distances
 
 def detect_heartbeats_in_ecg(ecg_signal, fs=800):
     detectors = Detectors(fs)
@@ -72,19 +72,48 @@ def get_vw(raw_signal, heartbeats, fs=800):
     return (v, w)
 
 
+def preprocess(raw_signal, fs=800, **kwargs):
+    if not(kwargs.get('medfilt_window')):
+        medfilt_window = 11
+    else:
+        medfilt_window = kwargs.get('medfilt_window')
+
+    if not(kwargs.get('bpfilter_order')):
+        bpfilter_order = 5
+    else:
+        bpfilter_order = kwargs.get('bpfilter_order')
+
+    sos = sp.butter(bpfilter_order, (0.5, 40), btype='bandpass', fs=fs, output='sos')
+    step1 = sp.sosfilt(sos, raw_signal)
+    step2 = sp.medfilt(step1, medfilt_window)
+
+    return step2
+
+
 def main(args):
     data_path = args.data_path
     fs = args.fs
+    target_dir = args.target_dir
 
     files = [f for f in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, f))]
 
     if args.interactive:
         i = int(input('Enter the number of file (0-{}): '.format(len(files)-1)))
+    
+        if i > len(files)-1 and i < 0:
+            print("Wrong number of file")
+            return
+
         with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
             signal = pickle.load(handle)
 
-        ecg = signal['dataframe']['ecg']
-        gcg = signal['dataframe']['gcg_y']
+        ecg = signal['dataframe'].loc[:,'ecg']
+        gcg = signal['dataframe'].loc[:,'gcg_y']
+
+        if args.preprocess:
+            ecg = preprocess(ecg)
+            gcg = preprocess(gcg)
+
         gcg_hb = detect_heartbeats_gcg(ecg, gcg, fs)
 
         v, w = get_vw(gcg, gcg_hb)
@@ -94,20 +123,12 @@ def main(args):
         xlabel('V')
         ylabel('W')
         title('Attractor reconstruction')
-        
-        # figure()
-        # hexbin(v, w, C=None, gridsize=300, cmap=CM.jet, bins=None)
-        # axis([v.min(), v.max(), w.min(), w.max()])
-        # title('Heatmap')
-        # xlabel('V')
-        # ylabel('W')
-
         show()
 
     else:
-        if not(os.path.exists("spars")):
+        if not(os.path.exists(target_dir)):
             print("Creating spars directory")
-            os.mkdir("spars")
+            os.mkdir(target_dir)
 
         for i in tqdm(files, total=len(files)):
             subj_no = [int(s) for s in re.findall(r'\d+', i)]
@@ -123,6 +144,11 @@ def main(args):
             scg = signal['dataframe'].loc[:,'scg_z']
             gcg = signal['dataframe'].loc[:,'gcg_y']
             
+            if args.preprocess:
+                ecg = preprocess(ecg)
+                scg = preprocess(scg)
+                gcg = preprocess(gcg)
+
             ecg_hb = detect_heartbeats_in_ecg(ecg, fs)
             scg_hb = detect_heartbeats_gcg(ecg, scg, fs)
             gcg_hb = detect_heartbeats_gcg(ecg, gcg, fs)
@@ -136,7 +162,7 @@ def main(args):
             xlabel('V')
             ylabel('W')
             title('Attractor reconstruction for ECG {}'.format(i))
-            savefig('spars/{}.png'.format(fname_spar_ecg), dpi=300, format='png')
+            savefig('spars/{}.png'.format(fname_spar_ecg), dpi=150, format='png')
             close()
 
             figure()
@@ -144,7 +170,7 @@ def main(args):
             xlabel('V')
             ylabel('W')
             title('Attractor reconstruction for SCG {}'.format(i))
-            savefig('spars/{}.png'.format(fname_spar_scg), dpi=300, format='png')
+            savefig('spars/{}.png'.format(fname_spar_scg), dpi=150, format='png')
             close()
 
             figure()
@@ -152,15 +178,17 @@ def main(args):
             xlabel('V')
             ylabel('W')
             title('Attractor reconstruction for GCG {}'.format(i))
-            savefig('spars/{}.png'.format(fname_spar_gcg), dpi=300, format='png')
+            savefig('spars/{}.png'.format(fname_spar_gcg), dpi=150, format='png')
             close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', nargs = '?', type = str, default = "signal_data/", help= "path to data files")
+    parser.add_argument('--target_dir', nargs = '?', type = str, default = "spars/", help= "path to save output files")
     parser.add_argument('--fs', nargs = '?', type = int, default = 800, help= "sampling frequency")
     parser.add_argument('--interactive', nargs='?', const=True, type=bool, default=False, help="interactive mode")
+    parser.add_argument('--preprocess', nargs='?', type=bool, const=True, default=False, help='Preprocess raw signals')
 					
     args = parser.parse_args()
     main(args)
