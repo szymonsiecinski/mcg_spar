@@ -22,19 +22,19 @@ def main(args):
         signal = pickle.load(handle)
 
     figure()
-    plot(signal['time'], signal['dataframe'].loc[:,'ecg'])
+    plot(signal['time'], signal['ecg'])
     xlabel('Time [s]')
     ylabel('Amplitude')
     title('ECG signal')
 
     figure()
-    plot(signal['time'], signal['dataframe'].loc[:,'scg_z'])
+    plot(signal['time'], signal['scg_z'])
     xlabel('Time [s]')
     ylabel('Amplitude')
     title('SCG signal')
 
     figure()
-    plot(signal['time'], signal['dataframe'].loc[:,'gcg_y'])
+    plot(signal['time'], signal['gcg_y'])
     xlabel('Time [s]')
     ylabel('Amplitude')
     title('GCG signal')

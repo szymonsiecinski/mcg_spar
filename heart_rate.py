@@ -69,8 +69,8 @@ def main(args):
         with open('{}/{}'.format(data_path, files[i]), 'rb') as handle:
             signal = pickle.load(handle)
 
-        ecg = signal['dataframe'].loc[:,'ecg']
-        gcg = signal['dataframe'].loc[:,'gcg_y']
+        ecg = signal['ecg']
+        gcg = signal['gcg_y']
         ecg_hb, gcg_hb = detect_heartbeats(ecg, gcg, fs)
 
         ecg_hr, gcg_hr = calculate_hr(ecg_hb, gcg_hb, fs)
@@ -109,8 +109,8 @@ def main(args):
                 signal = pickle.load(handle)
 
             time = signal['time']
-            ecg = signal['dataframe'].loc[:,'ecg']
-            gcg = signal['dataframe'].loc[:,'gcg_y']
+            ecg = signal['ecg']
+            gcg = signal['gcg_y']
             
             ecg_hb, gcg_hb = detect_heartbeats(ecg, gcg, fs)
             save_heartbeats(fname_hb, time, ecg_hb, gcg_hb, fs)
