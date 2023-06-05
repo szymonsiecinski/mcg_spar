@@ -1,10 +1,12 @@
 import argparse
 import pickle
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import auc, RocCurveDisplay
 from tqdm import tqdm
 import os
 import pandas
-from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, legend, show
+from matplotlib.pyplot import figure, plot, savefig, xlabel, ylabel, title, legend, show
 import numpy as np
 import glob
 
@@ -84,7 +86,20 @@ def main(args):
                                    np.ndarray(w_maxs, dtype=np.float32), np.ndarray(w_avgs, dtype=np.float32),
                                    np.ndarray(w_sds, dtype=np.float32), np.ndarray(w_medians, dtype=np.float32))
         tree = DecisionTreeClassifier(max_depth=1)
-        tree.fit(feature_matrix, labels)
+        x_train, x_test, y_train, y_test = train_test_split(feature_matrix, labels, test_size=0.3, random_state=43)
+        tree.fit(x_train, y_train)
+
+        acc_train = tree.score(x_train, y_train)
+        acc_test = tree.score(x_test, y_test)
+        print("Accuracy (training set): {}".format(acc_train))
+        print("Accuracy (test set): {}".format(acc_test))
+
+        accuracies = {'acc_train': acc_train, 'acc_test': acc_test}
+        res_df = pandas.DataFrame(accuracies)
+        res_df.to_csv('accuracies.csv')
+
+        RocCurveDisplay.from_estimator(tree, x_test, y_test, name="ROC", alpha=0.3)
+        savefig('ROC.png', dpi=150, format='png')
 
 
 if __name__ == "__main__":
