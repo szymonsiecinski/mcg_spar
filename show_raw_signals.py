@@ -24,19 +24,19 @@ def main(args):
     figure()
     plot(signal['time'], signal['ecg'])
     xlabel('Time [s]')
-    ylabel('Amplitude')
+    ylabel('Amplitude [mV]')
     title('ECG signal')
 
     figure()
     plot(signal['time'], signal['scg_z'])
     xlabel('Time [s]')
-    ylabel('Amplitude')
+    ylabel('Amplitude [mg]')
     title('SCG signal')
 
     figure()
     plot(signal['time'], signal['gcg_y'])
     xlabel('Time [s]')
-    ylabel('Amplitude')
+    ylabel('Amplitude [dps]')
     title('GCG signal')
     show()
 

@@ -1,30 +1,47 @@
 import argparse
 import pickle
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.calibration import cross_val_predict
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import auc, RocCurveDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, accuracy_score
+from sklearn.preprocessing import minmax_scale
+from sklearn.svm import SVC
 from tqdm import tqdm
-import os
 import pandas
-from matplotlib.pyplot import figure, plot, savefig, xlabel, ylabel, title, legend, show
+from matplotlib.pyplot import figure, plot, savefig, xlabel, ylabel, legend, title, show
 import numpy as np
 import glob
-
-
-def save_hr(filename, time, ecg_hr, gcg_hr, fs=800):
-    hr = {'time': time, 'ecg_hr': ecg_hr, 'gcg_hr': gcg_hr, 'fs': fs}
-
-    if not(os.path.exists("hr")):
-        print("Creating HR folder")
-        os.mkdir("hr")
-
-    with open('hr/{}.pickle'.format(filename), 'wb') as f:
-        pickle.dump(hr, f, protocol=pickle.HIGHEST_PROTOCOL)
+from sklearn.neural_network import MLPClassifier
+from imblearn.over_sampling import SMOTE
+import numpy.typing as npt
+import sklearn.base as sb
 
 
 def read_labels(filename):
     with open(filename, 'r') as f:
         return [line.rstrip() for line in f]
+
+
+def evaluate_classifier(model : sb.BaseEstimator, x: npt.ArrayLike, y: npt.ArrayLike, cv=3, model_name='Base'):
+    pred = cross_val_predict(model, x, y, cv=cv)
+    cm = confusion_matrix(y, pred)
+
+    precision = precision_score(y, pred, average='macro')
+    recall = recall_score(y, pred, average='macro')
+    accuracy = accuracy_score(y, pred)
+
+    print(model_name)
+    print("Accuracy: {}".format(accuracy))
+    print("Precision: {}".format(precision))
+    print("Recall: {}".format(recall))
+
+    accuracies = {'accuracy': accuracy, 'precision': precision, 'recall': recall}
+    res_df = pandas.DataFrame(accuracies, index=[0])
+    res_df.to_csv('performance_{}.csv'.format(model_name))
+
+    disp=ConfusionMatrixDisplay(cm)
+    disp.plot()
+    savefig('confmatrix_{}.png'.format(model_name), dpi=150, format='png')
 
 
 def main(args):
@@ -45,6 +62,7 @@ def main(args):
     w_avgs=list()
     w_sds=list()
     w_medians=list()
+    hamming_dists=list()
 
     print("Populating lists")
     for i in tqdm(files, total=len(files)):
@@ -63,6 +81,7 @@ def main(args):
         w_sds.append(features['w_sd'])
         v_medians.append(features['v_median'])
         w_medians.append(features['w_median'])
+        hamming_dists.append(features['hamming_dist'])
 
     '''Dump descriptive statistics to csv file'''
     if(args.stats):
@@ -74,40 +93,40 @@ def main(args):
                     'w_avg': {'Mean': np.mean(v_avgs), 'SD': np.std(v_avgs), 'Min': np.min(v_mins), 'Max': np.max(v_avgs)},
                     'v_sd': {'Mean': np.mean(v_sds), 'SD': np.std(v_sds), 'Min': np.min(v_sds), 'Max': np.max(v_sds)},
                     'w_sd': {'Mean': np.mean(w_sds), 'SD': np.std(w_sds), 'Min': np.min(v_sds), 'Max': np.max(v_sds)},
+                    'v_median': {'Mean': np.mean(v_medians), 'SD': np.std(v_medians), 'Min': np.min(v_medians), 'Max': np.max(v_medians)},
+                    'w_median': {'Mean': np.mean(w_medians), 'SD': np.std(w_medians), 'Min': np.min(v_medians), 'Max': np.max(v_medians)},
+                    'hamming_dist': {'Mean': np.mean(hamming_dists), 'SD': np.std(hamming_dists), 'Min': np.min(hamming_dists), 'Max': np.max(hamming_dists)},
                     }
         df=pandas.DataFrame(stats_dict)
         df.to_csv('descriptive_stats.csv')
 
-    '''Training a decision tree'''
-    if(args.train):
-        feature_matrix = np.hstack((np.ndarray(v_mins, dtype=np.float32), np.ndarray(v_maxs, dtype=np.float32)),
-                                   np.ndarray(v_avgs, dtype=np.float32), np.ndarray(v_sds, dtype=np.float32),
-                                   np.ndarray(v_medians, dtype=np.float32), np.ndarray(w_mins, dtype=np.float32),
-                                   np.ndarray(w_maxs, dtype=np.float32), np.ndarray(w_avgs, dtype=np.float32),
-                                   np.ndarray(w_sds, dtype=np.float32), np.ndarray(w_medians, dtype=np.float32))
-        tree = DecisionTreeClassifier(max_depth=1)
-        x_train, x_test, y_train, y_test = train_test_split(feature_matrix, labels, test_size=0.3, random_state=43)
-        tree.fit(x_train, y_train)
+    '''Training a random forest'''
+    feature_matrix = np.array([v_mins, v_maxs, v_avgs, v_sds, w_mins, w_maxs, w_avgs, w_sds, hamming_dists]).T
+    #feature_matrix = minmax_scale(feature_matrix, feature_range=(-1, 1))
+    #x_train, x_test, y_train, y_test = train_test_split(feature_matrix, labels, test_size=0.3, random_state=43)
 
-        acc_train = tree.score(x_train, y_train)
-        acc_test = tree.score(x_test, y_test)
-        print("Accuracy (training set): {}".format(acc_train))
-        print("Accuracy (test set): {}".format(acc_test))
+    '''SMOTE - '''
+    smote = SMOTE()
+    x, y =smote.fit_resample(feature_matrix, labels)
 
-        accuracies = {'acc_train': acc_train, 'acc_test': acc_test}
-        res_df = pandas.DataFrame(accuracies)
-        res_df.to_csv('accuracies.csv')
+    tree = RandomForestClassifier(criterion='gini', min_samples_split=2, min_samples_leaf=1)
+    svm = SVC(kernel='poly', degree=3, gamma='scale')
+    nnetwork = MLPClassifier(hidden_layer_sizes=(6,15,30,30,60,120,60,60,30,30,15,6,), activation='relu', learning_rate='adaptive', solver='sgd')
 
-        RocCurveDisplay.from_estimator(tree, x_test, y_test, name="ROC", alpha=0.3)
-        savefig('ROC.png', dpi=150, format='png')
+    evaluate_classifier(tree,feature_matrix, labels, cv=3, model_name='Random Forest (raw)')
+    evaluate_classifier(svm,feature_matrix, labels, cv=3, model_name='SVM (raw)')
+    evaluate_classifier(nnetwork,feature_matrix, labels, cv=3, model_name='Neural Network (raw)')
 
+    #with SMOTE
+    evaluate_classifier(tree, x, y, cv=3, model_name='Random Forest (SMOTE)')
+    evaluate_classifier(svm, x, y, cv=3, model_name='SVM (SMOTE)')
+    evaluate_classifier(nnetwork, x, y, cv=3, model_name='Neural Network (SMOTE)')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', nargs = '?', type = str, default = "spars/", help= "path to data files")
     parser.add_argument('--labels', nargs = '?', type = str, default = "labels.txt", help= "path to labels file")
     parser.add_argument('--signals', nargs='?', type=str, default="ecg", help="type of signals (ecg/scg/gcg)")
-    parser.add_argument('--train', nargs='?', const=True, type=bool, default=False, help="Train a classifier")
     parser.add_argument('--stats', nargs='?', const=True, type=bool, default=False, help="run descriptive statistics")
 					
     args = parser.parse_args()

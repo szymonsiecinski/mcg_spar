@@ -1,6 +1,8 @@
 import argparse
 import pickle
 import math
+import scipy
+from sklearn.metrics import pairwise_distances
 from tqdm import tqdm
 import os
 from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig, close, contourf
@@ -10,7 +12,7 @@ import hrv
 import numpy as np
 import scipy.signal as sp
 import re
-from sklearn.metrics.pairwise import euclidean_distances
+
 
 def detect_heartbeats_in_ecg(ecg_signal, fs=800):
     detectors = Detectors(fs)
@@ -101,11 +103,13 @@ def calculate_features(v, w):
     w_sd = np.std(w)
     v_median = np.median(v)
     w_median = np.median(w)
+    hammdist_vw = scipy.spatial.distance.hamming(v, w)
     return {'v_min': v_min, 'v_max': v_max,
             'w_min': w_min, 'w_max': w_max,
             'v_avg': v_avg, 'w_avg': w_avg,
             'v_sd': v_sd, 'w_sd': w_sd,
-            'v_median': v_median, 'w_median': w_median
+            'v_median': v_median, 'w_median': w_median,
+            'hamming_dist': hammdist_vw
             }
 
 

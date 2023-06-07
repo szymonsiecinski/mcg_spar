@@ -4,3 +4,4 @@ pickle
 scipy
 numpy
 py-ecg-detectors
+imblearn
