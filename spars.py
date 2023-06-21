@@ -5,7 +5,7 @@ import scipy
 from sklearn.metrics import pairwise_distances
 from tqdm import tqdm
 import os
-from matplotlib.pyplot import figure, plot, xlabel, ylabel, title, show, savefig, close, contourf
+from matplotlib.pyplot import figure, plot, plot_date, scatter, xlabel, ylabel, title, show, savefig, close, contourf
 from matplotlib import cm as CM
 from ecgdetectors import Detectors
 import hrv
@@ -103,13 +103,13 @@ def calculate_features(v, w):
     w_sd = np.std(w)
     v_median = np.median(v)
     w_median = np.median(w)
-    hammdist_vw = scipy.spatial.distance.hamming(v, w)
+    vw_dist = np.sqrt(np.sum((v-w)**2))
     return {'v_min': v_min, 'v_max': v_max,
             'w_min': w_min, 'w_max': w_max,
             'v_avg': v_avg, 'w_avg': w_avg,
             'v_sd': v_sd, 'w_sd': w_sd,
             'v_median': v_median, 'w_median': w_median,
-            'hamming_dist': hammdist_vw
+            'vw_dist': vw_dist
             }
 
 
@@ -145,12 +145,20 @@ def main(args):
         gcg_hb = detect_heartbeats_gcg(ecg, gcg, fs)
 
         v, w = get_vw(gcg, gcg_hb)
+        features = calculate_features(v, w)
+        dist=features['vw_dist']
 
         figure()
         plot(v, w)
         xlabel('V')
         ylabel('W')
         title('Attractor reconstruction')
+
+        ax=figure().add_subplot(projection='3d')
+        scatter(v, w, dist)
+        xlabel('V')
+        ylabel('W')
+        title('Density map')
         show()
 
     else:
